@@ -4,15 +4,15 @@ import qualified Data.Map.Strict as Map
 import Sound.Tidal.Types
 import Sound.Tidal.Show ()
 
-data PlayState = PlayState {pattern :: ControlSignal,
+data PlayState a = PlayState {pattern :: Signal a,
                             mute :: Bool,
                             solo :: Bool,
-                            history :: [ControlSignal]
+                            history :: [Signal a]
                            }
                deriving Show
 
 type PatId = String
-type PlayMap = Map.Map PatId PlayState
+type PlayMap a = Map.Map PatId (PlayState a)
 
 data TickState = TickState {
                     tickArc   :: Arc,

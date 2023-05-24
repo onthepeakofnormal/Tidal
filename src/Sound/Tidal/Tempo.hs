@@ -49,14 +49,14 @@ import           Sound.Tidal.StreamTypes
 instance Show O.Udp where
   show _ = "-unshowable-"
 
-type TransitionMapper = P.Time -> [P.ControlSignal] -> P.ControlSignal
+type TransitionMapper a = P.Time -> [P.Signal a] -> P.Signal a
 
-data TempoAction =
+data TempoAction a =
   SetCycle P.Time
-  | SingleTick P.ControlSignal
+  | SingleTick (P.Signal a)
   | SetNudge Double
-  | StreamReplace ID P.ControlSignal
-  | Transition Bool TransitionMapper ID P.ControlSignal
+  | StreamReplace ID (P.Signal a)
+  | Transition Bool (TransitionMapper a) ID (P.Signal a)
 
 data State = State {ticks  :: Int64,
                     start  :: Link.Micros,
@@ -65,11 +65,11 @@ data State = State {ticks  :: Int64,
                    }
   deriving Show
 
-data ActionHandler =
+data ActionHandler a =
   ActionHandler {
     onTick :: TickState -> LinkOperations -> P.ValueMap -> IO P.ValueMap,
-    onSingleTick :: LinkOperations -> P.ValueMap -> P.ControlSignal -> IO P.ValueMap,
-    updatePattern :: ID -> P.Time -> P.ControlSignal -> IO ()
+    onSingleTick :: LinkOperations -> P.ValueMap -> P.Signal a -> IO P.ValueMap,
+    updatePattern :: ID -> P.Time -> P.Signal a -> IO ()
   }
 
 data LinkOperations =
@@ -83,10 +83,10 @@ data LinkOperations =
     cyclesToBeat  :: CDouble -> CDouble
   }
 
-setCycle :: P.Time -> MVar [TempoAction] -> IO ()
+setCycle :: P.Time -> MVar [TempoAction a] -> IO ()
 setCycle cyc actionsMV = modifyMVar_ actionsMV (\actions -> return $ SetCycle cyc : actions)
 
-setNudge :: MVar [TempoAction] -> Double -> IO ()
+setNudge :: MVar [TempoAction a] -> Double -> IO ()
 setNudge actionsMV nudge = modifyMVar_ actionsMV (\actions -> return $ SetNudge nudge : actions)
 
 timeToCycles' :: Config -> Link.SessionState -> Link.Micros -> IO P.Time
@@ -104,7 +104,7 @@ addMicrosToOsc :: Link.Micros -> O.Time -> O.Time
 addMicrosToOsc m t = ((fromIntegral m) / 1000000) + t
 
 -- clocked assumes tempoMV is empty
-clocked :: Config -> MVar P.ValueMap -> MVar PlayMap -> MVar [TempoAction] -> ActionHandler -> Link.AbletonLink -> IO [ThreadId]
+clocked :: Config -> MVar P.ValueMap -> MVar (PlayMap a) -> MVar [TempoAction a] -> ActionHandler a -> Link.AbletonLink -> IO [ThreadId]
 clocked config stateMV mapMV actionsMV ac abletonLink
   = do -- TODO - do something with thread id
       clockTid <- forkIO $ loopInit
@@ -115,7 +115,7 @@ clocked config stateMV mapMV actionsMV ac abletonLink
         quantum = cQuantum config
         beatsPerCycle :: CDouble
         beatsPerCycle = cBeatsPerCycle config
-        loopInit :: IO a
+        --loopInit :: IO a
         loopInit =
           do
             when (cEnableLink config) $ Link.enable abletonLink
@@ -139,7 +139,7 @@ clocked config stateMV mapMV actionsMV ac abletonLink
         -- tick moves the logical time forward or recalculates the ticks in case
         -- the logical time is out of sync with Link time.
         -- tick delays the thread when logical time is ahead of Link time.
-        tick :: State -> IO a
+        --tick :: State -> IO a
         tick st = do
           now <- Link.clock abletonLink
           let preferredNewTick = ticks st + 1
@@ -163,7 +163,7 @@ clocked config stateMV mapMV actionsMV ac abletonLink
         -- of nowArc. How far ahead is controlled by cProcessAhead.
         processAhead :: Link.Micros
         processAhead = round $ (cProcessAhead config) * 1000000
-        checkArc :: State -> IO a
+        --checkArc :: State -> IO a
         checkArc st = do
           actions <- swapMVar actionsMV []
           st' <- processActions st actions
@@ -175,7 +175,7 @@ clocked config stateMV mapMV actionsMV ac abletonLink
           if (arcStartTime < logicalEnd)
             then processArc st'
             else tick st'
-        processArc :: State -> IO a
+        --processArc :: State -> IO a
         processArc st =
           do
             streamState <- takeMVar stateMV
@@ -207,14 +207,14 @@ clocked config stateMV mapMV actionsMV ac abletonLink
         btc beat = beat / beatsPerCycle
         ctb :: CDouble -> CDouble
         ctb cyc =  cyc * beatsPerCycle
-        processActions :: State -> [TempoAction] -> IO State
+        --processActions :: State -> [TempoAction a] -> IO State
         processActions st [] = return $! st
         processActions st actions = do
           streamState <- takeMVar stateMV
           (st', streamState') <- handleActions st actions streamState
           putMVar stateMV streamState'
           return $! st'
-        handleActions :: State -> [TempoAction] -> P.ValueMap -> IO (State, P.ValueMap)
+        --handleActions :: State -> [TempoAction a] -> a -> IO (State, a)
         handleActions st [] streamState = return (st, streamState)
         handleActions st (SetCycle cyc : otherActions) streamState =
           do

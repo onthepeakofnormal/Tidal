@@ -82,7 +82,7 @@ import System.IO (hSetEncoding, stdout, utf8)
 -- You must implement an instance of this in 'BootTidal.hs'. Note that GHC
 -- will complain that it is an "orphan" instance, but that is ok.
 class Tidally where
-  tidal :: Stream
+  tidal :: Stream ValueMap
 
 type OscMap = [(Target, [OSC])]
 
@@ -95,11 +95,11 @@ mkOscMap :: OscMap
 mkOscMap = [(superdirtTarget {oLatency = 0.05, oAddress = "127.0.0.1", oPort = 57120}, [superdirtShape])]
 
 -- | Creates a Tidal instance using default config. Use 'mkTidalWith' to customize.
-mkTidal :: IO Stream
+mkTidal :: IO (Stream ValueMap)
 mkTidal = mkTidalWith mkConfig mkOscMap
 
 -- | See 'Sound.Tidal.Stream.startStream'.
-mkTidalWith :: Config -> OscMap -> IO Stream
+mkTidalWith :: Config -> OscMap -> IO (Stream ValueMap)
 mkTidalWith config oscmap = do
   hSetEncoding stdout utf8
   startStream config oscmap
