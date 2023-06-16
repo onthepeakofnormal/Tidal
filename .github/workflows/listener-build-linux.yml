@@ -49,7 +49,7 @@ jobs:
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/settings tidal-listener/binary/haskell-libs/settings
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/llvm-targets tidal-listener/binary/haskell-libs/llvm-targets
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/llvm-passes tidal-listener/binary/haskell-libs/llvm-passes
-        cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/bin/* tidal-listener/binary/haskell-libs/bin/*
+        cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/bin/* tidal-listener/binary/haskell-libs/bin
         ls tidal-listener/binary/haskell-libs/ghc-packages
             
     - name: move installed packages
