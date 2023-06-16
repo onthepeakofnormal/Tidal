@@ -43,11 +43,13 @@ jobs:
     - name: move GHC libs and configs
       run: |
         mkdir -p tidal-listener/binary/haskell-libs/ghc-packages/
+        mkdir -p tidal-listener/binary/haskell-libs/bin/
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/* tidal-listener/binary/haskell-libs/ghc-packages
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/package.conf.d tidal-listener/binary/haskell-libs/
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/settings tidal-listener/binary/haskell-libs/settings
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/llvm-targets tidal-listener/binary/haskell-libs/llvm-targets
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/llvm-passes tidal-listener/binary/haskell-libs/llvm-passes
+        cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/bin/* tidal-listener/binary/haskell-libs/bin/*
         ls tidal-listener/binary/haskell-libs/ghc-packages
             
     - name: move installed packages
@@ -109,7 +111,6 @@ jobs:
             
     - name: fake gcc
       run: |
-        mkdir -p tidal-listener/binary/haskell-libs/bin/
         cp tidal-listener/fake_gcc.sh tidal-listener/binary/haskell-libs/bin/fake_gcc.sh
         sed -i 's/cc/bin\/fake_gcc.sh/g' tidal-listener/binary/haskell-libs/settings
         chmod 755 tidal-listener/binary/haskell-libs/bin/fake_gcc.sh
