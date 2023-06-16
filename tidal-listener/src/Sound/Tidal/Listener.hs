@@ -33,7 +33,7 @@ listenWithConfig Config{..} = do
             mOut <- newEmptyMVar
 
             putStrLn "Starting tidal interpreter.. "
-            _ <- forkIO $ startHintJob True stream mIn mOut
+            _ <- forkIO $ startHintJob (not noGHC) stream mIn mOut
 
             (remote_addr:_) <- N.getAddrInfo Nothing (Just "127.0.0.1") Nothing
             local <- udpServer "127.0.0.1" listenPort
