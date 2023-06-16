@@ -43,7 +43,8 @@ jobs:
     - name: move GHC libs and configs
       run: |
         mkdir -p tidal-listener/binary/haskell-libs/ghc-packages/
-        cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/* tidal-listener/binary/haskell-libs/ghc-packages
+        cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/* tidal-listener/binary/haskell-libs/ghc-packages
+        cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/package.conf.d tidal-listener/binary/haskell-libs/
         ls tidal-listener/binary/haskell-libs/ghc-packages
             
     - name: move installed packages
@@ -52,10 +53,10 @@ jobs:
         cp -r ${{ steps.setup-haskell-cabal.outputs.cabal-store }}/ghc-${{ matrix.ghc }}/* tidal-listener/binary/haskell-libs/packages
         ls tidal-listener/binary/haskell-libs/packages
    
-    #- name: change paths in config files (GHC)
-    #  run: |
-    #    mv tidal-listener/binary/haskell-libs/ghc-packages/package.conf.d tidal-listener/binary/haskell-libs/package.conf.d
-    #    sed -i 's/\/opt\/ghc\/${{ matrix.ghc }}\/lib\/ghc-${{ matrix.ghc }}/${pkgroot}\/ghc-packages/g' tidal-listener/binary/haskell-libs/package.conf.d/*
+    - name: change paths in config files (GHC)
+      run: |
+        # mv tidal-listener/binary/haskell-libs/ghc-packages/package.conf.d tidal-listener/binary/haskell-libs/package.conf.d
+        sed -i 's/..\/lib\/x86_64-linux-ghc-${{ matrix.ghc }}/ghc-packages/g' tidal-listener/binary/haskell-libs/package.conf.d/*
      
     - name: change paths in config files (cabal)
       run: |
@@ -97,11 +98,11 @@ jobs:
         ln -s /usr/lib/x86_64-linux-gnu/libc.so.6          tidal-listener/binary/c-libs/libc.so
         ln -s /usr/lib/x86_64-linux-gnu/libdl.so.2         tidal-listener/binary/c-libs/libdl.so
 
-    - name: remove unneccessary libs 
-      run: |
-        cd tidal-listener/binary/haskell-libs/ghc-packages
-        rm -r ghc-${{ matrix.ghc }}
-        rm -r Cabal-*
+   # - name: remove unneccessary libs 
+   #   run: |
+   #     cd tidal-listener/binary/haskell-libs/ghc-packages
+   #     rm -r ghc-${{ matrix.ghc }}
+   #     rm -r Cabal-*
             
     - name: fake gcc
       run: |
