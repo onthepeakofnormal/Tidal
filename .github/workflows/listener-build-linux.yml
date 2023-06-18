@@ -10,7 +10,7 @@ jobs:
       matrix:
         ghc: ['9.4.2']
         cabal: ['3.6.2.0']
-        
+
     steps:
     - name: Check out code
       uses: actions/checkout@v2
@@ -21,11 +21,11 @@ jobs:
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
-        
+
     - name: Freeze
       run: cabal freeze
 
-    - name: Cache 
+    - name: Cache
       uses: actions/cache@v2
       with:
         path: |
@@ -38,7 +38,7 @@ jobs:
       run: |
         cabal update
         cabal install tidal --lib
-        cabal build --enable-tests tidal-listener
+        cabal build --ghc-options=-dynamic
 
     - name: move GHC libs and configs
       run: |
@@ -52,23 +52,23 @@ jobs:
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/llvm-passes tidal-listener/binary/haskell-libs/llvm-passes
         cp -r ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/bin/* tidal-listener/binary/haskell-libs/bin
         ls tidal-listener/binary/haskell-libs/ghc-packages
-            
+
     - name: move installed packages
-      run: | 
+      run: |
         mkdir -p tidal-listener/binary/haskell-libs/packages/
         cp -r ${{ steps.setup-haskell-cabal.outputs.cabal-store }}/ghc-${{ matrix.ghc }}/* tidal-listener/binary/haskell-libs/packages
         ls tidal-listener/binary/haskell-libs/packages
-   
+
     - name: change paths in config files (GHC)
       run: |
         # mv tidal-listener/binary/haskell-libs/ghc-packages/package.conf.d tidal-listener/binary/haskell-libs/package.conf.d
         sed -i 's/..\/lib\/x86_64-linux-ghc-${{ matrix.ghc }}/ghc-packages/g' tidal-listener/binary/haskell-libs/package.conf.d/*
-     
+
     - name: change paths in config files (cabal)
       run: |
         mv tidal-listener/binary/haskell-libs/packages/package.db tidal-listener/binary/haskell-libs/package.db
         sed -i 's/\/home\/runner\/.cabal\/store\/ghc-${{ matrix.ghc }}/${pkgroot}\/packages/g' tidal-listener/binary/haskell-libs/package.db/*
-   
+
     #- name: move ghc settings etc
     #  run: |
     #    mv tidal-listener/binary/haskell-libs/ghc-packages/settings tidal-listener/binary/haskell-libs/settings
@@ -81,6 +81,12 @@ jobs:
         ghc-pkg --package-db=tidal-listener/binary/haskell-libs/package.conf.d recache
         ghc-pkg --package-db=tidal-listener/binary/haskell-libs/package.db recache
         ghc-pkg --package-db=tidal-listener/binary/haskell-libs/package.conf.d --package-db=tidal-listener/binary/haskell-libs/package.db check
+
+    -name: link dynamic ghc libs
+     run: |
+      ln -s ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/*.so tidal-listener/binary/haskell-libs/ghc-packages/*.so
+      ln -s ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/*.so.* tidal-listener/binary/haskell-libs/ghc-packages/*.so.*
+
 
     - name: move c-libs
       run: |
@@ -104,23 +110,23 @@ jobs:
         ln -s /usr/lib/x86_64-linux-gnu/libc.so.6          tidal-listener/binary/c-libs/libc.so
         ln -s /usr/lib/x86_64-linux-gnu/libdl.so.2         tidal-listener/binary/c-libs/libdl.so
 
-   # - name: remove unneccessary libs 
+   # - name: remove unneccessary libs
    #   run: |
    #     cd tidal-listener/binary/haskell-libs/ghc-packages
    #     rm -r ghc-${{ matrix.ghc }}
    #     rm -r Cabal-*
-            
+
     - name: fake gcc
       run: |
         cp tidal-listener/fake_gcc.sh tidal-listener/binary/haskell-libs/bin/fake_gcc.sh
         sed -i 's/cc/bin\/fake_gcc.sh/g' tidal-listener/binary/haskell-libs/settings
         chmod 755 tidal-listener/binary/haskell-libs/bin/fake_gcc.sh
-   
+
     - name: move executable
       run: |
         cp dist-newstyle/build/x86_64-linux/ghc-${{ matrix.ghc }}/tidal-listener-0.1.0.0/x/tidal-listener/build/tidal-listener/tidal-listener tidal-listener/binary/tidal-listener
         # cp dist-newstyle/build/x86_64-linux/ghc-${{ matrix.ghc }}/tidal-*/x/tidal/build/tidal/tidal tidal-listener/binary/tidal
-  
+
     - name: zip files
       run: |
         cd tidal-listener/
