@@ -40,6 +40,7 @@ jobs:
         cabal install tidal --lib
         cabal build tidal-listener
         cabal build tidal-listener --ghc-options=-dynamic
+        cabal install tidal-listener --lib
 
     - name: move GHC libs and configs
       run: |
@@ -83,11 +84,15 @@ jobs:
         ghc-pkg --package-db=tidal-listener/binary/haskell-libs/package.db recache
         ghc-pkg --package-db=tidal-listener/binary/haskell-libs/package.conf.d --package-db=tidal-listener/binary/haskell-libs/package.db check
 
-   # - name: link dynamic ghc libs
-   #   run: |
-   #    ln -s ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/*.so tidal-listener/binary/haskell-libs/ghc-packages/*.so
-   #    ln -s ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/*.so.* tidal-listener/binary/haskell-libs/ghc-packages/*.so.*
-
+    - name: link dynamic libs
+      run: |
+       cd tidal-listener/binary
+       export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:haskell-libs/ghc-packages
+       ln -s haskell-libs/ghc-packages/*.so .
+       ln -s haskell-libs/packages/*/lib/*.so .
+       mv libHStidal-link-1.0.1-*-ghc${{ matrix.ghc }}.so libHStidal-link-1.0.1-inplace-ghc${{ matrix.ghc }}.so
+       mv libHStidal-1.9.5-*-ghc${{ matrix.ghc }}.so libHStidal-1.9.5-inplace-ghc${{ matrix.ghc }}.so
+       mv libHStidal-listener-0.1.0.0-*-ghc${{ matrix.ghc }}.so libHStidal-listener-0.1.0.0-inplace-ghc${{ matrix.ghc }}.so
 
     - name: move c-libs
       run: |
