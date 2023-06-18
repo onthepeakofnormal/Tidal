@@ -39,7 +39,6 @@ jobs:
         cabal update
         cabal install tidal --lib
         cabal build tidal-listener
-        cabal build tidal-listener --ghc-options=-dynamic
         cabal install tidal-listener --lib
 
     - name: move GHC libs and configs
