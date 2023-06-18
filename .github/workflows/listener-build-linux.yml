@@ -83,10 +83,10 @@ jobs:
         ghc-pkg --package-db=tidal-listener/binary/haskell-libs/package.db recache
         ghc-pkg --package-db=tidal-listener/binary/haskell-libs/package.conf.d --package-db=tidal-listener/binary/haskell-libs/package.db check
 
-    - name: link dynamic ghc libs
-      run: |
-       ln -s ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/*.so tidal-listener/binary/haskell-libs/ghc-packages/*.so
-       ln -s ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/*.so.* tidal-listener/binary/haskell-libs/ghc-packages/*.so.*
+   # - name: link dynamic ghc libs
+   #   run: |
+   #    ln -s ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/*.so tidal-listener/binary/haskell-libs/ghc-packages/*.so
+   #    ln -s ${{ steps.setup-haskell-cabal.outputs.ghc-path }}/../lib/ghc-${{ matrix.ghc }}/lib/x86_64-linux-ghc-${{ matrix.ghc }}/*.so.* tidal-listener/binary/haskell-libs/ghc-packages/*.so.*
 
 
     - name: move c-libs
