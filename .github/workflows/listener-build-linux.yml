@@ -38,6 +38,7 @@ jobs:
       run: |
         cabal update
         cabal install tidal --lib
+        cabal build
         cabal build --ghc-options=-dynamic
 
     - name: move GHC libs and configs
