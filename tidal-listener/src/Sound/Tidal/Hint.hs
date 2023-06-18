@@ -20,7 +20,7 @@ import Sound.Tidal.Listener.Config
 import Sound.Tidal.Listener.Parse
 
 ghcArgs:: String -> [String]
-ghcArgs lib = ["-dynamic", "-fexternal-interpreter","-clear-package-db", "-package-db", lib ++ "haskell-libs/package.conf.d", "-package-db", lib ++ "haskell-libs/package.db", "-v"]
+ghcArgs lib = ["-dynamic", "-fexternal-interpreter","-dynload","deploy", "-clear-package-db", "-package-db", lib ++ "haskell-libs/package.conf.d", "-package-db", lib ++ "haskell-libs/package.db", "-v"]
 
 unsafeInterpreter :: Interpreter a -> IO (Either InterpreterError a)
 unsafeInterpreter interpreter = do
