@@ -121,7 +121,7 @@ jobs:
 
     - name: fake gcc
       run: |
-        cp fake_gcc.sh binary/bin/fake_gcc.sh
+        cp tidal-listener/fake_gcc.sh binary/bin/fake_gcc.sh
         sed -i 's/gcc/bin\/fake_gcc.sh/g' binary/haskell-libs/settings
         chmod 755 binary/bin/fake_gcc.sh
 
