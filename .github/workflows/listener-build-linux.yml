@@ -40,7 +40,7 @@ jobs:
           restore-keys: ${{ env.key }}-
 
     - name: install dependencies
-      run: cabal build all tidal-listener --only-dependencies
+      run: cabal build all tidal-listener --only-dependencies --ghc-options=-dynamic
 
       # Cache dependencies already here, so that we do not have to rebuild them should the subsequent steps fail.
     - name: save cached dependencies
