@@ -44,6 +44,6 @@ executable tidal-listener
   default-language:    Haskell2010
   ghc-options: -threaded
                -Wall
-  ld-options: -Wl,-rpath -Wl,$ORIGIN/haskell-libs/ghc-packages -Wl,-rpath -Wl,$ORIGIN/c-libs 
+  ld-options: -Wl,-rpath -Wl,$ORIGIN/haskell-libs/ghc-packages -Wl,-rpath -Wl,$ORIGIN/c-libs -Wl,-rpath -Wl,$ORIGIN/haskell-libs/packages 
   if os(darwin)
      ld-options: -mmacosx-version-min=10.9
