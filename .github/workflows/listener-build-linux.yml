@@ -27,7 +27,6 @@ jobs:
         cabal update
         cabal configure --enable-tests --enable-benchmarks --disable-documentation
         cabal build tidal-listener --ghc-options=-dynamic --dry-run
-        cabal install tidal-listener --lib
         cabal install tidal --lib
         cabal install tidal-link --lib
       # The last step generates dist-newstyle/cache/plan.json for the cache key.
@@ -45,6 +44,7 @@ jobs:
     - name: install dependencies
       run: cabal build all tidal-listener --only-dependencies
 
+
       # Cache dependencies already here, so that we do not have to rebuild them should the subsequent steps fail.
     - name: save cached dependencies
       uses: actions/cache/save@v3
@@ -57,7 +57,8 @@ jobs:
     - name: cabal build and install
       run: |
             cabal build tidal-listener
-            cabal build tidal-listener --ghc-options=-dynamic
+            cabal build tidal-listener --ghc-options=-dynamic --ghc-options=-fwhole-archive-hs-libs
+            cabal install tidal-listener --lib
 
     - name: move GHC libs and configs
       run: |
@@ -123,7 +124,7 @@ jobs:
         ls
         mv libHStidal-1.9.5-*-ghc${{ matrix.ghc }}.so libHStidal-1.9.5-inplace-ghc${{ matrix.ghc }}.so
         mv libHStidal-link-1.0.1-*-ghc${{ matrix.ghc }}.so libHStidal-link-1.0.1-inplace-ghc${{ matrix.ghc }}.so
-        mv libHStidal-listener-0.1.0.0-*-ghc${{ matrix.ghc }}.so libHStidal-listener-1.0.1-inplace-ghc${{ matrix.ghc }}.so
+        mv libHStidal-listener-0.1.0.0-*-ghc${{ matrix.ghc }}.so libHStidal-listener-0.1.0.0-inplace-ghc${{ matrix.ghc }}.so
 
    # - name: remove unneccessary libs
    #   run: |
