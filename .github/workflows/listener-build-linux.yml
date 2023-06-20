@@ -93,7 +93,6 @@ jobs:
         ghc-pkg --package-db=binary/haskell-libs/package.db recache
         ghc-pkg --package-db=binary/haskell-libs/package.conf.d --package-db=binary/haskell-libs/package.db check
 
-
     - name: move c-libs
       run: |
         mkdir -p binary/c-libs/
@@ -115,6 +114,15 @@ jobs:
         ln -s /usr/lib/x86_64-linux-gnu/libgmp.so.10       binary/c-libs/libgmp.so
         ln -s /usr/lib/x86_64-linux-gnu/libc.so.6          binary/c-libs/libc.so
         ln -s /usr/lib/x86_64-linux-gnu/libdl.so.2         binary/c-libs/libdl.so
+
+    - name: dyn-libs
+      run: |
+        mkdir -p binary/dyn-libs
+        cd binary/dyn-libs
+        ln -s ../haskell-libs/packages/*/lib/*.so .
+        mv libHStidal-1.9.5-*-ghc${{ matrix.ghc }}.so libHStidal-1.9.5-include-ghc${{ matrix.ghc }}.so
+        mv libHStidal-link-1.0.1-*-ghc${{ matrix.ghc }}.so libHStidal-link-1.0.1-include-ghc${{ matrix.ghc }}.so
+        mv libHStidal-listener-0.1.0.0-*-ghc${{ matrix.ghc }}.so libHStidal-listener-0.1.0.0-include-ghc${{ matrix.ghc }}.so
 
    # - name: remove unneccessary libs
    #   run: |
