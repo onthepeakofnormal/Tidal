@@ -27,6 +27,9 @@ jobs:
         cabal update
         cabal configure --enable-tests --enable-benchmarks --disable-documentation
         cabal build tidal-listener --ghc-options=-dynamic --dry-run
+        cabal install tidal-listener --lib
+        cabal install tidal --lib
+        cabal install tidal-link --lib
       # The last step generates dist-newstyle/cache/plan.json for the cache key.
 
     - name: restore cached dependencies
@@ -41,7 +44,7 @@ jobs:
 
     - name: install dependencies
       run: cabal build all tidal-listener --only-dependencies
-      
+
       # Cache dependencies already here, so that we do not have to rebuild them should the subsequent steps fail.
     - name: save cached dependencies
       uses: actions/cache/save@v3
@@ -52,7 +55,7 @@ jobs:
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
     - name: cabal build and install
-      run: | 
+      run: |
             cabal build tidal-listener
             cabal build tidal-listener --ghc-options=-dynamic
 
