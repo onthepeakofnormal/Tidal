@@ -120,9 +120,10 @@ jobs:
         mkdir -p binary/dyn-libs
         cd binary/dyn-libs
         ln -s ../haskell-libs/packages/*/lib/*.so .
+        ls
         mv libHStidal-1.9.5-*-ghc${{ matrix.ghc }}.so libHStidal-1.9.5-include-ghc${{ matrix.ghc }}.so
         mv libHStidal-link-1.0.1-*-ghc${{ matrix.ghc }}.so libHStidal-link-1.0.1-include-ghc${{ matrix.ghc }}.so
-        mv libHStidal-listener-0.1.0.0-*-ghc${{ matrix.ghc }}.so libHStidal-listener-0.1.0.0-include-ghc${{ matrix.ghc }}.so
+        mv libHStidal-listener-0.1.0.0-*-ghc${{ matrix.ghc }}.so libHStidal-listener-1.0.1-include-ghc${{ matrix.ghc }}.so
 
    # - name: remove unneccessary libs
    #   run: |
