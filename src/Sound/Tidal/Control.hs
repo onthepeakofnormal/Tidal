@@ -84,7 +84,7 @@ _chop :: Int -> ControlPattern -> ControlPattern
 _chop n = withEvents (concatMap chopEvent)
   where -- for each part,
         chopEvent :: Event ValueMap -> [Event ValueMap]
-        chopEvent (Event c (Just w) p' v) = map (chomp c v (length $ chopArc w n)) $ arcs w p'
+        chopEvent (Event c (Just w) p' v k) = map (chomp c v (length $ chopArc w n) k) $ arcs w p'
         -- ignoring 'analog' events (those without wholes),
         chopEvent _ = []
         -- cut whole into n bits, and number them
@@ -97,8 +97,8 @@ _chop n = withEvents (concatMap chopEvent)
         -- if the old event had a begin and end, then multiply the new
         -- begin and end values by the old difference (end-begin), and
         -- add the old begin
-        chomp :: Context -> ValueMap -> Int -> (Int, (Arc, Arc)) -> Event ValueMap
-        chomp c v n' (i, (w,p')) = Event c (Just w) p' (Map.insert "begin" (VF b') $ Map.insert "end" (VF e') v)
+        chomp :: Context -> ValueMap -> Int -> Key -> (Int, (Arc, Arc)) -> Event ValueMap
+        chomp c v n' k (i, (w,p')) = Event c (Just w) p' (Map.insert "begin" (VF b') $ Map.insert "end" (VF e') v) k
           where b = fromMaybe 0 $ do v' <- Map.lookup "begin" v
                                      getF v'
                 e = fromMaybe 1 $ do v' <- Map.lookup "end" v

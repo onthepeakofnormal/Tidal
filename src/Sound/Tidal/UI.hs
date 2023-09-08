@@ -127,7 +127,7 @@ jux (# ((1024 <~) $ gain rand)) $ sound "sn sn ~ sn" # gain rand
 @
 -}
 rand :: Fractional a => Pattern a
-rand = Pattern (\(State a@(Arc s e) _) -> [Event (Context []) Nothing a (realToFrac $ (timeToRand ((e + s)/2) :: Double))])
+rand = Pattern (\(State a@(Arc s e) _) -> [Event (Context []) Nothing a (realToFrac $ (timeToRand ((e + s)/2) :: Double)) (Key [])])
 
 -- | Boolean rand - a continuous stream of true\/false values, with a 50\/50 chance.
 brand :: Pattern Bool
@@ -1148,7 +1148,7 @@ randArcs n =
 -- TODO - what does this do? Something for @stripe@ ..
 randStruct :: Int -> Pattern Int
 randStruct n = splitQueries $ Pattern {query = f}
-  where f st = map (\(a,b,c) -> Event (Context []) (Just a) (fromJust b) c) $ filter (\(_,x,_) -> isJust x) as
+  where f st = map (\(a,b,c) -> Event (Context []) (Just a) (fromJust b) c (Key [])) $ filter (\(_,x,_) -> isJust x) as
           where as = map (\(i, Arc s' e') ->
                     (Arc (s' + sam s) (e' + sam s),
                        subArc (Arc s e) (Arc (s' + sam s) (e' + sam s)), i)) $
@@ -1159,7 +1159,7 @@ randStruct n = splitQueries $ Pattern {query = f}
 -- TODO - what does this do?
 substruct' :: Pattern Int -> Pattern a -> Pattern a
 substruct' s p = p {query = \st -> concatMap (f st) (query s st)}
-  where f st (Event c (Just a') _ i) = map (\e -> e {context = combineContexts [c, context e]}) $ queryArc (compressArcTo a' (inside (pure $ 1/toRational(length (queryArc s (Arc (sam (start $ arc st)) (nextSam (start $ arc st)))))) (rotR (toRational i)) p)) a'
+  where f st (Event c (Just a') _ i k) = map (\e -> e {context = combineContexts [c, context e], key = combineKeys k (key e)}) $ queryArc (compressArcTo a' (inside (pure $ 1/toRational(length (queryArc s (Arc (sam (start $ arc st)) (nextSam (start $ arc st)))))) (rotR (toRational i)) p)) a'
         -- Ignore analog events (ones without wholes)
         f _ _ = []
 
@@ -1392,8 +1392,8 @@ _outside n = _inside (1/n)
 loopFirst :: Pattern a -> Pattern a
 loopFirst p = splitQueries $ p {query = f}
   where f st = map
-          (\(Event c w p' v) ->
-             Event c (plus <$> w) (plus p') v) $
+          (\(Event c w p' v k) ->
+             Event c (plus <$> w) (plus p') v k) $
           query p (st {arc = minus $ arc st})
           where minus = fmap (subtract (sam s))
                 plus = fmap (+ sam s)
@@ -1501,7 +1501,7 @@ randrun n' =
                 arcs = zipWith Arc fractions (tail fractions)
                 fractions = map (+ (sam $ start a)) [0, 1 / fromIntegral n' .. 1]
                 toEv (a',v) = do a'' <- subArc a a'
-                                 return $ Event (Context []) (Just a') a'' v
+                                 return $ Event (Context []) (Just a') a'' v (Key [])
 
 -- ** Composing patterns
 
@@ -1571,7 +1571,7 @@ ur t outer_p ps fs = _slow t $ unwrap $ adjust <$> timedValues (getPat . split <
         transform _ _ = id
         transform' str (Arc s e) p = s `rotR` inside (pure $ 1/(e-s)) (matchF str) p
         matchF str = fromMaybe id $ lookup str fs
-        timedValues = withEvent (\(Event c (Just a) a' v) -> Event c (Just a) a' (a,v)) . filterDigital
+        timedValues = withEvent (\(Event c (Just a) a' v k) -> Event c (Just a) a' (a,v) k) . filterDigital
 
 -- | A simpler version of 'ur' that just provides name-value bindings that are reflected in the provided pattern.
 inhabit :: [(String, Pattern a)] -> Pattern String -> Pattern a
@@ -1589,7 +1589,7 @@ spaceOut xs p = _slow (toRational $ sum xs) $ stack $ map (`compressArc` p) spac
 -- | @flatpat@ takes a 'Pattern' of lists and pulls the list elements as
 -- separate 'Event's.
 flatpat :: Pattern [a] -> Pattern a
-flatpat p = p {query = concatMap (\(Event c b b' xs) -> map (Event c b b') xs) . query p}
+flatpat p = p {query = concatMap (\(Event c b b' xs k) -> map (\x -> Event c b b' x k) xs) . query p}
 
 -- | @layer@ takes a list of 'Pattern'-returning functions and a seed element,
 -- stacking the result of applying the seed element to each function in the list.
@@ -1610,10 +1610,10 @@ arpWith :: ([EventF (ArcF Time) a] -> [EventF (ArcF Time) b]) -> Pattern a -> Pa
 arpWith f p = withEvents munge p
   where munge es = concatMap (spreadOut . f) (groupBy (\a b -> whole a == whole b) $ sortOn whole es)
         spreadOut xs = mapMaybe (\(n, x) -> shiftIt n (length xs) x) $ enumerate xs
-        shiftIt n d (Event c (Just (Arc s e)) a' v) =
+        shiftIt n d (Event c (Just (Arc s e)) a' v k) =
           do
             a'' <- subArc (Arc newS newE) a'
-            return (Event c (Just $ Arc newS newE) a'' v)
+            return (Event c (Just $ Arc newS newE) a'' v k)
           where newS = s + (dur * fromIntegral n)
                 newE = newS + dur
                 dur = (e - s) / fromIntegral d
@@ -1693,9 +1693,9 @@ rolledWith t = withEvents aux
                steppityIn xs = mapMaybe (\(n, ev) -> (timeguard n xs ev t)) $ enumerate xs
                timeguard _ _ ev 0 = return ev
                timeguard n xs ev _ = (shiftIt n (length xs) ev)
-               shiftIt n d (Event c (Just (Arc s e)) a' v) = do
+               shiftIt n d (Event c (Just (Arc s e)) a' v k) = do
                          a'' <- subArc (Arc newS e) a'
-                         return (Event c (Just $ Arc newS e) a'' v)
+                         return (Event c (Just $ Arc newS e) a'' v k)
                       where newS = s + (dur * fromIntegral n)
                             dur = ((e - s)) / ((1/ (abs t))*fromIntegral d)
                shiftIt _ _ ev =  return ev
@@ -2172,7 +2172,8 @@ smooth p = Pattern $ \st@(State a cm) -> tween st a $ query monoP (State (midArc
                 { context = context e,
                   whole = Just queryA'
                 , part = queryA'
-                , value = value e + ((v - value e) * pc)}
+                , value = value e + ((v - value e) * pc)
+                , key = key e}
               ]
             pc | delta' (wholeOrPart e) == 0 = 0
                | otherwise = fromRational $ (eventPartStart e - wholeStart e) / delta' (wholeOrPart e)
@@ -2241,15 +2242,15 @@ squeeze ipat pats = squeezeJoin $ (pats !!!) <$> ipat
 squeezeJoinUp :: Pattern (ControlPattern) -> ControlPattern
 squeezeJoinUp pp = pp {query = q}
   where q st = concatMap (f st) (query (filterDigital pp) st)
-        f st (Event c (Just w) p v) =
-          mapMaybe (munge c w p) $ query (compressArc (cycleArc w) (v |* P.speed (pure $ fromRational $ 1/(stop w - start w)))) st {arc = p}
+        f st (Event c (Just w) p v k) =
+          mapMaybe (munge c w p k) $ query (compressArc (cycleArc w) (v |* P.speed (pure $ fromRational $ 1/(stop w - start w)))) st {arc = p}
         -- already ignoring analog events, but for completeness..
         f _ _ = []
-        munge co oWhole oPart (Event ci (Just iWhole) iPart v) =
+        munge co oWhole oPart oK (Event ci (Just iWhole) iPart v ik) =
           do w' <- subArc oWhole iWhole
              p' <- subArc oPart iPart
-             return (Event (combineContexts [ci,co]) (Just w') p' v)
-        munge _ _ _ _ = Nothing
+             return (Event (combineContexts [ci,co]) (Just w') p' v (combineKeys oK ik))
+        munge _ _ _ _ _= Nothing
 
 _chew :: Int -> Pattern Int -> ControlPattern  -> ControlPattern
 _chew n ipat pat = (squeezeJoinUp $ zoompat <$> ipat) |/ P.speed (pure $ fromIntegral n)

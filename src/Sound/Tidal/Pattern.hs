@@ -71,7 +71,8 @@ instance Applicative Pattern where
                 (Context [])
                 (Just a')
                 (sect a a')
-                v)
+                v
+                (Key []))
     $ cycleArcsInArc a
 
   -- | In each of `a <*> b`, `a <* b` and `a *> b`
@@ -116,12 +117,12 @@ applyPatToPat :: (Maybe Arc -> Maybe Arc -> Maybe (Maybe Arc)) -> Pattern (a -> 
 applyPatToPat combineWholes pf px = Pattern q
     where q st = catMaybes $ concatMap match $ query pf st
             where
-              match ef@(Event (Context c) _ fPart f) =
+              match ef@(Event (Context c) _ fPart f fk) =
                 map
-                (\ex@(Event (Context c') _ xPart x) ->
+                (\ex@(Event (Context c') _ xPart x xk) ->
                   do whole' <- combineWholes (whole ef) (whole ex)
                      part' <- subArc fPart xPart
-                     return (Event (Context $ c ++ c') whole' part' (f x))
+                     return (Event (Context $ c ++ c') whole' part' (f x) (combineKeys fk xk))
                 )
                 (query px $ st {arc = wholeOrPart ef})
 
@@ -130,15 +131,15 @@ applyPatToPatBoth pf px = Pattern q
     where q st = catMaybes $ (concatMap match $ query pf st) ++ (concatMap matchX $ query (filterAnalog px) st)
             where
               -- match analog events from pf with all events from px
-              match ef@(Event _ Nothing fPart _)   = map (withFX ef) (query px $ st {arc = fPart}) -- analog
+              match ef@(Event _ Nothing fPart _ _)   = map (withFX ef) (query px $ st {arc = fPart}) -- analog
               -- match digital events from pf with digital events from px
-              match ef@(Event _ (Just fWhole) _ _) = map (withFX ef) (query (filterDigital px) $ st {arc = fWhole}) -- digital
+              match ef@(Event _ (Just fWhole) _ _ _) = map (withFX ef) (query (filterDigital px) $ st {arc = fWhole}) -- digital
               -- match analog events from px (constrained above) with digital events from px
-              matchX ex@(Event _ Nothing fPart _)  = map (`withFX` ex) (query (filterDigital pf) $ st {arc = fPart}) -- digital
+              matchX ex@(Event _ Nothing fPart _ _)  = map (`withFX` ex) (query (filterDigital pf) $ st {arc = fPart}) -- digital
               matchX _ = error "can't happen"
               withFX ef ex = do whole' <- subMaybeArc (whole ef) (whole ex)
                                 part' <- subArc (part ef) (part ex)
-                                return (Event (combineContexts [context ef, context ex]) whole' part' (value ef $ value ex))
+                                return (Event (combineContexts [context ef, context ex]) whole' part' (value ef $ value ex) (combineKeys (key ef) (key ex)))
 
 applyPatToPatLeft :: Pattern (a -> b) -> Pattern a -> Pattern b
 applyPatToPatLeft pf px = Pattern q
@@ -147,7 +148,7 @@ applyPatToPatLeft pf px = Pattern q
               match ef = map (withFX ef) (query px $ st {arc = wholeOrPart ef})
               withFX ef ex = do let whole' = whole ef
                                 part' <- subArc (part ef) (part ex)
-                                return (Event (combineContexts [context ef, context ex]) whole' part' (value ef $ value ex))
+                                return (Event (combineContexts [context ef, context ex]) whole' part' (value ef $ value ex) (combineKeys (key ef) (key ex)))
 
 applyPatToPatRight :: Pattern (a -> b) -> Pattern a -> Pattern b
 applyPatToPatRight pf px = Pattern q
@@ -156,7 +157,7 @@ applyPatToPatRight pf px = Pattern q
               match ex = map (`withFX` ex) (query pf $ st {arc = wholeOrPart ex})
               withFX ef ex = do let whole' = whole ex
                                 part' <- subArc (part ef) (part ex)
-                                return (Event (combineContexts [context ef, context ex]) whole' part' (value ef $ value ex))
+                                return (Event (combineContexts [context ef, context ex]) whole' part' (value ef $ value ex) (combineKeys (key ef) (key ex)))
 
 applyPatToPatSqueeze :: Pattern (a -> b) -> Pattern a -> Pattern b
 applyPatToPatSqueeze pf px = squeezeJoin $ (\f -> f <$> px) <$> pf
@@ -183,28 +184,28 @@ instance Monad Pattern where
 unwrap :: Pattern (Pattern a) -> Pattern a
 unwrap pp = pp {query = q}
   where q st = concatMap
-          (\(Event c w p v) ->
-             mapMaybe (munge c w p) $ query v st {arc = p})
+          (\(Event c w p v k) ->
+             mapMaybe (munge c w p k) $ query v st {arc = p})
           (query pp st)
-        munge oc ow op (Event ic iw ip v') =
+        munge oc ow op ok (Event ic iw ip v' k') =
           do
             w' <- subMaybeArc ow iw
             p' <- subArc op ip
-            return (Event (combineContexts [ic, oc]) w' p' v')
+            return (Event (combineContexts [ic, oc]) w' p' v' (combineKeys ok k'))
 
 -- | Turns a pattern of patterns into a single pattern. Like @unwrap@,
 -- but structure only comes from the inner pattern.
 innerJoin :: Pattern (Pattern a) -> Pattern a
 innerJoin pp = pp {query = q}
   where q st = concatMap
-               (\(Event oc _ op v) -> mapMaybe (munge oc) $ query v st {arc = op}
+               (\(Event oc _ op v k) -> mapMaybe (munge oc k) $ query v st {arc = op}
           )
           (query pp st)
-          where munge oc (Event ic iw ip v) =
+          where munge oc ok (Event ic iw ip v k) =
                   do
                     p <- subArc (arc st) ip
                     p' <- subArc p (arc st)
-                    return (Event (combineContexts [ic, oc]) iw p' v)
+                    return (Event (combineContexts [ic, oc]) iw p' v (combineKeys ok k))
 
 -- | Turns a pattern of patterns into a single pattern. Like @unwrap@,
 -- but structure only comes from the outer pattern.
@@ -212,13 +213,13 @@ outerJoin :: Pattern (Pattern a) -> Pattern a
 outerJoin pp = pp {query = q}
   where q st = concatMap
           (\e ->
-             mapMaybe (munge (context e) (whole e) (part e)) $ query (value e) st {arc = pure (start $ wholeOrPart e)}
+             mapMaybe (munge (context e) (whole e) (part e) (key e)) $ query (value e) st {arc = pure (start $ wholeOrPart e)}
           )
           (query pp st)
-          where munge oc ow op (Event ic _ _ v') =
+          where munge oc ow op ok (Event ic _ _ v' k') =
                   do
                     p' <- subArc (arc st) op
-                    return (Event (combineContexts [oc, ic]) ow p' v')
+                    return (Event (combineContexts [oc, ic]) ow p' v' (combineKeys ok k'))
 
 -- | Like @unwrap@, but cycles of the inner patterns are compressed to fit the
 -- timespan of the outer whole (or the original query if it's a continuous pattern?)
@@ -226,14 +227,14 @@ outerJoin pp = pp {query = q}
 squeezeJoin :: Pattern (Pattern a) -> Pattern a
 squeezeJoin pp = pp {query = q}
   where q st = concatMap
-          (\e@(Event c w p v) ->
-             mapMaybe (munge c w p) $ query (focusArc (wholeOrPart e) v) st {arc = p}
+          (\e@(Event c w p v k) ->
+             mapMaybe (munge c w p k) $ query (focusArc (wholeOrPart e) v) st {arc = p}
           )
           (query pp st)
-        munge oContext oWhole oPart (Event iContext iWhole iPart v) =
+        munge oContext oWhole oPart oKey (Event iContext iWhole iPart v ik) =
           do w' <- subMaybeArc oWhole iWhole
              p' <- subArc oPart iPart
-             return (Event (combineContexts [iContext, oContext]) w' p' v)
+             return (Event (combineContexts [iContext, oContext]) w' p' v (combineKeys oKey ik))
 
 
 _trigJoin :: Bool -> Pattern (Pattern a) -> Pattern a
@@ -241,11 +242,11 @@ _trigJoin cycleZero pat_of_pats = Pattern q
   where q st =
           catMaybes $
           concatMap
-          (\oe@(Event oc (Just jow) op ov) ->
-             map (\oe@(Event ic (iw) ip iv) ->
+          (\oe@(Event oc (Just jow) op ov ok) ->
+             map (\oe@(Event ic (iw) ip iv ik) ->
                     do w <- subMaybeArc (Just jow) iw
                        p <- subArc op ip
-                       return $ Event (combineContexts [ic, oc]) w p iv
+                       return $ Event (combineContexts [ic, oc]) w p iv (combineKeys ok ik)
                  )
                $ query (((if cycleZero then id else cyclePos) $ start jow) `rotR` ov) st
           )
@@ -305,7 +306,7 @@ instance Monoid (Pattern a) where
   mempty = empty
 
 instance Semigroup (Pattern a) where
-  (<>) !p !p' = Pattern $ \st -> query p st ++ query p' st
+  (<>) !p !p' = Pattern $ \st -> (query p st) ++ (query p' st)
 
 instance (Num a, Ord a) => Real (Pattern a) where
   toRational = noOv "toRational"
@@ -425,7 +426,7 @@ splitQueries p = p {query = \st -> concatMap (\a -> query p st {arc = a}) $ arcC
 -- | Apply a function to the arcs/timespans (both whole and parts) of the result
 withResultArc :: (Arc -> Arc) -> Pattern a -> Pattern a
 withResultArc f pat = pat
-  { query = map (\(Event c w p e) -> Event c (f <$> w) (f p) e) . query pat}
+  { query = map (\(Event c w p e k) -> Event c (f <$> w) (f p) e k) . query pat}
 
 -- | Apply a function to the time (both start and end of the timespans
 -- of both whole and parts) of the result
@@ -462,7 +463,7 @@ withEvents f p = p {query = f . query p}
 -- | @withPart f p@ returns a new @Pattern@ with function @f@ applied
 -- to the part.
 withPart :: (Arc -> Arc) -> Pattern a -> Pattern a
-withPart f = withEvent (\(Event c w p v) -> Event c w (f p) v)
+withPart f = withEvent (\(Event c w p v k) -> Event c w (f p) v k)
 
 _extract :: (Value -> Maybe a) -> String -> ControlPattern -> Pattern a
 _extract f name pat = filterJust $ withValue (Map.lookup name >=> f) pat
@@ -488,7 +489,7 @@ extractR :: String -> ControlPattern -> Pattern Rational
 extractR = _extract getR
 
 -- | Extract a pattern of note values by from a control pattern, given the name of the control
-extractN :: String -> ControlPattern -> Pattern Note 
+extractN :: String -> ControlPattern -> Pattern Note
 extractN = _extract getN
 
 compressArc :: Arc -> Pattern a -> Pattern a
@@ -564,16 +565,16 @@ rev p =
     }
   where makeWholeRelative :: Event a -> Event a
         makeWholeRelative e@Event {whole = Nothing} = e
-        makeWholeRelative (Event c (Just (Arc s e)) p'@(Arc s' e') v) =
-          Event c (Just $ Arc (s'-s) (e-e')) p' v
+        makeWholeRelative (Event c (Just (Arc s e)) p'@(Arc s' e') v k) =
+          Event c (Just $ Arc (s'-s) (e-e')) p' v k
         makeWholeAbsolute :: Event a -> Event a
         makeWholeAbsolute e@Event {whole = Nothing} = e
-        makeWholeAbsolute (Event c (Just (Arc s e)) p'@(Arc s' e') v) =
-          Event c (Just $ Arc (s'-e) (e'+s)) p' v
+        makeWholeAbsolute (Event c (Just (Arc s e)) p'@(Arc s' e') v k) =
+          Event c (Just $ Arc (s'-e) (e'+s)) p' v k
         midCycle :: Arc -> Time
         midCycle (Arc s _) = sam s + 0.5
         mapParts :: (Arc -> Arc) -> [Event a] -> [Event a]
-        mapParts f es = (\(Event c w p' v) -> Event c w (f p') v) <$> es
+        mapParts f es = (\(Event c w p' v k) -> Event c w (f p') v k) <$> es
         -- | Returns the `mirror image' of a 'Arc' around the given point in time
         mirrorArc :: Time -> Arc -> Arc
         mirrorArc mid' (Arc s e) = Arc (mid' - (e-mid')) (mid'+(mid'-s))
@@ -584,8 +585,8 @@ matchManyToOne :: (b -> a -> Bool) -> Pattern a -> Pattern b -> Pattern (Bool, b
 matchManyToOne f pa pb = pa {query = q}
   where q st = map match $ query pb st
           where
-            match ex@(Event xContext xWhole xPart x) =
-              Event (combineContexts $ xContext:map context as') xWhole xPart (any (f x . value) as', x)
+            match ex@(Event xContext xWhole xPart x k) =
+              Event (combineContexts $ xContext:map context as') xWhole xPart (any (f x . value) as', x) k
                 where as' = as $ start $ wholeOrPart ex
             as s = query pa $ fQuery s
             fQuery s = st {arc = Arc s s}
@@ -633,6 +634,14 @@ tParam3 f a b c p = innerJoin $ (\x y z -> f x y z p) <$> a <*> b <*> c
 tParamSqueeze :: (a -> Pattern b -> Pattern c) -> (Pattern a -> Pattern b -> Pattern c)
 tParamSqueeze f tv p = squeezeJoin $ (`f` p) <$> tv
 
+-- ** Keys
+
+combineKeys :: Key -> Key -> Key
+combineKeys (Key xs) (Key ys) = Key (xs ++ ys)
+
+addKey :: Int -> Key -> Key
+addKey i (Key xs) = Key (i:xs)
+
 -- ** Context
 
 combineContexts :: [Context] -> Context
@@ -679,6 +688,10 @@ instance Stringy String where
 
 -- ** Events
 
+data Key = Key [Int] deriving (Eq, Show, Ord, Generic)
+
+instance NFData Key
+
 -- | Some context for an event, currently just position within sourcecode
 data Context = Context {contextPosition :: [((Int, Int), (Int, Int))]}
   deriving (Eq, Ord, Generic)
@@ -691,6 +704,7 @@ data EventF a b = Event
   , whole :: Maybe a
   , part :: a
   , value :: b
+  , key :: Key
   } deriving (Eq, Ord, Functor, Generic)
 instance (NFData a, NFData b) => NFData (EventF a b)
 
@@ -717,7 +731,7 @@ defragParts (e:es) | isJust i = defraged : defragParts (delete e' es)
                    | otherwise = e : defragParts es
   where i = findIndex (isAdjacent e) es
         e' = es !! fromJust i
-        defraged = Event (context e) (whole e) u (value e)
+        defraged = Event (context e) (whole e) u (value e) (key e)
         u = hull (part e) (part e')
 
 -- | Returns 'True' if the two given events are adjacent parts of the same whole
@@ -763,7 +777,7 @@ eventHasOnset e | isAnalog e = False
 -- TODO - Is this used anywhere? Just tests, it seems
 -- TODO - support 'context' field
 toEvent :: (((Time, Time), (Time, Time)), a) -> Event a
-toEvent (((ws, we), (ps, pe)), v) = Event (Context []) (Just $ Arc ws we) (Arc ps pe) v
+toEvent (((ws, we), (ps, pe)), v) = Event (Context []) (Just $ Arc ws we) (Arc ps pe) v (Key [])
 
  -- Resolves higher order VState values to plain values, by passing through (and changing) state
 resolveState :: ValueMap -> [Event ValueMap] -> (ValueMap, [Event ValueMap])

@@ -34,7 +34,7 @@ sig :: (Time -> a) -> Pattern a
 sig f = Pattern q
   where q (State (Arc s e) _)
           | s > e = []
-          | otherwise = [Event (Context []) Nothing (Arc s e) (f (s+((e-s)/2)))]
+          | otherwise = [Event (Context []) Nothing (Arc s e) (f (s+((e-s)/2))) (Key [])]
 
 -- | @sine@ - unipolar sinewave. A pattern of continuous values following a
 -- sinewave with frequency of one cycle, and amplitude from 0 to 1.
@@ -324,14 +324,17 @@ timecat :: [(Time, Pattern a)] -> Pattern a
 timecat = timeCat
 
 -- | 'overlay' combines two 'Pattern's into a new pattern, so that
--- their events are combined over time. 
+-- their events are combined over time.
 overlay :: Pattern a -> Pattern a -> Pattern a
-overlay = (<>)
+overlay p p' = Pattern $ \st -> map (\e -> e {key = addKey 0 (key e)}) (query p st) ++ map (\e -> e {key = addKey 1 (key e)}) (query p' st)
 
 -- | 'stack' combines a list of 'Pattern's into a new pattern, so that
 -- their events are combined over time.
+newstack :: [Pattern a] -> Pattern a
+newstack xs = Pattern $ \st -> concatMap (\i -> map (\e -> e {key = addKey i (key e)}) $ query (xs!!i) st ) [0..length xs - 1]
+
 stack :: [Pattern a] -> Pattern a
-stack = foldr overlay silence
+stack = foldr (<>) silence
 
 -- ** Manipulating time
 

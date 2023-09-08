@@ -57,14 +57,14 @@ showPattern a p = intercalate "\n" evStrings
         evStrings = map evString evs
 
 showEvent :: Show a => Event a -> (String, String)
-showEvent (Event _ (Just (Arc ws we)) a@(Arc ps pe) e) =
+showEvent (Event _ (Just (Arc ws we)) a@(Arc ps pe) e _) =
   (h ++ "(" ++ show a ++ ")" ++ t ++ "|", show e)
   where h | ws == ps = ""
           | otherwise = prettyRat ws ++ "-"
         t | we == pe = ""
           | otherwise = "-" ++ prettyRat we
 
-showEvent (Event _ Nothing a e) =
+showEvent (Event _ Nothing a e _) =
   ("~" ++ show a ++ "~|", show e)
 
 -- Show everything, including event context
@@ -225,7 +225,7 @@ sortOn' f = map snd . sortOn fst . map (\x -> let y = f x in y `seq` (y, x))
 -}
 
 fits :: Event b -> [Event b] -> Bool
-fits (Event _ _ part' _) events = not $ any (\Event{..} -> isJust $ subArc part' part) events
+fits (Event _ _ part' _ _) events = not $ any (\Event{..} -> isJust $ subArc part' part) events
 
 addEvent :: Event b -> [[Event b]] -> [[Event b]]
 addEvent e [] = [[e]]
